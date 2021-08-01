@@ -24,7 +24,7 @@ pub type Guarded<'a, Resource> = GuardedResource<'static, Resource, &'a ash::Dev
 ///
 /// ```
 /// use ash::{prelude::VkResult, vk};
-/// use ashpan::{DeviceGuardedMethods, Guarded};
+/// use ashpan::{DeviceExt, Guarded};
 ///
 /// unsafe fn create_pipeline(device: &ash::Device) -> VkResult<Guarded<vk::Pipeline>> {
 ///     let pipeline_cache = unimplemented!();

@@ -3,8 +3,8 @@
 //!
 //! * [`Guarded`]/[`GuardedResource`] is essentially a [`ScopeGuard`](scopeguard::ScopeGuard) that
 //!   selects an appropriate destructor automatically.
-//! * [`DeviceGuardedMethods`] (along with [`EntryGuardedMethods`] and [`InstanceGuardedMethods`])
-//!   provide convenience methods to create resources and wrap them in [`GuardedResource`]s.
+//! * [`DeviceExt`] (along with [`EntryExt`] and [`InstanceExt`]) provide convenience methods to
+//!   create resources and wrap them in [`GuardedResource`]s.
 //! * [`Destroyable`] allows you to extend the behavior of [`GuardedResource`].
 //!
 //! # Introduction
@@ -102,7 +102,7 @@
 //!
 //! ```
 //! # use ash::{prelude::VkResult, vk};
-//! use ashpan::{DeviceGuardedMethods, Guarded};
+//! use ashpan::{DeviceExt, Guarded};
 //! #
 //! # struct Resources {
 //! #     render_pass: vk::RenderPass,
@@ -145,7 +145,7 @@
 //!
 //! ```
 //! # use ash::{prelude::VkResult, vk};
-//! use ashpan::{Destroyable, DeviceGuardedMethods, Guarded};
+//! use ashpan::{Destroyable, DeviceExt, Guarded};
 //! #
 //! # struct Resources {
 //! #     render_pass: vk::RenderPass,
@@ -181,17 +181,14 @@ mod guarded;
 mod instance;
 
 pub use destroy::Destroyable;
-pub use device::DeviceGuardedMethods;
-pub use entry::EntryGuardedMethods;
+pub use device::DeviceExt;
+pub use entry::EntryExt;
 pub use guarded::{Guarded, GuardedResource};
-pub use instance::InstanceGuardedMethods;
+pub use instance::InstanceExt;
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        Destroyable, DeviceGuardedMethods, EntryGuardedMethods, GuardedResource,
-        InstanceGuardedMethods,
-    };
+    use crate::{Destroyable, DeviceExt, EntryExt, GuardedResource, InstanceExt};
     use ash::vk;
 
     #[derive(Debug, PartialEq)]

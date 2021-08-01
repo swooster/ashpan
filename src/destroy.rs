@@ -15,7 +15,7 @@ use ash::{
 ///
 /// ```
 /// # use ash::{prelude::VkResult, vk};
-/// use ashpan::{Destroyable, DeviceGuardedMethods, Guarded};
+/// use ashpan::{Destroyable, DeviceExt, Guarded};
 ///
 /// struct Resources {
 ///     render_pass: vk::RenderPass,

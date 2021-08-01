@@ -15,7 +15,7 @@ tailored to Vulkan.
 ## Example
 
 ```rust
-use ashpan::{DeviceGuardedMethods, Guarded};
+use ashpan::{DeviceExt, Guarded};
 
 struct Resources { ... }
 

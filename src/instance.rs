@@ -3,7 +3,7 @@ use ash::{prelude::VkResult, vk};
 use crate::GuardedResource;
 
 /// Extension trait adding guarded methods to [`ash::Instance`]
-pub trait InstanceGuardedMethods {
+pub trait InstanceExt {
     /// Same as [ash::Instance::create_device] but returns guarded device
     #[allow(clippy::missing_safety_doc)]
     unsafe fn create_guarded_device<'a>(
@@ -14,7 +14,7 @@ pub trait InstanceGuardedMethods {
     ) -> VkResult<GuardedResource<'a, ash::Device, &'static ()>>;
 }
 
-impl InstanceGuardedMethods for ash::Instance {
+impl InstanceExt for ash::Instance {
     unsafe fn create_guarded_device<'a>(
         &self,
         physical_device: vk::PhysicalDevice,
