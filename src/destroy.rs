@@ -5,7 +5,7 @@ use ash::{
 
 /// Indicates that a type is destroyable
 ///
-/// Vulkan resources generally need to be created and destroyed with a `Context` (usually an
+/// Vulkan resources generally need to be created and destroyed with a `Destroyer` (usually an
 /// [`&ash::Device`](ash::Device)) and `allocation_callbacks`. The [`Destroyable`] trait provides
 /// a common interface, allowing compile-time selection of an appropriate destructor based on the
 /// resource type.
@@ -31,7 +31,7 @@ use ash::{
 /// }
 ///
 /// impl Destroyable for Resources {
-///     type Context = ash::Device;
+///     type Destroyer = ash::Device;
 ///
 ///     unsafe fn destroy_with(
 ///         &mut self,
@@ -57,26 +57,26 @@ use ash::{
 /// ```
 pub trait Destroyable {
     /// The type that performs the destruction of the `Destroyable`
-    type Context: ?Sized;
+    type Destroyer: ?Sized;
 
-    /// Destroys `self` via `context` with `allocation_callbacks`.
+    /// Destroys `self` via `Destroyer` with `allocation_callbacks`.
     ///
     /// # Safety
     ///
     /// Depends on the resource type; see Vulkan spec for details.
     unsafe fn destroy_with(
         &mut self,
-        context: &Self::Context,
+        destroyer: &Self::Destroyer,
         allocation_callbacks: Option<&vk::AllocationCallbacks>,
     );
 }
 
 impl Destroyable for ash::Instance {
-    type Context = ();
+    type Destroyer = ();
 
     unsafe fn destroy_with(
         &mut self,
-        _context: &(),
+        _destroyer: &(),
         allocation_callbacks: Option<&vk::AllocationCallbacks>,
     ) {
         self.destroy_instance(allocation_callbacks);
@@ -84,11 +84,11 @@ impl Destroyable for ash::Instance {
 }
 
 impl Destroyable for ash::Device {
-    type Context = ();
+    type Destroyer = ();
 
     unsafe fn destroy_with(
         &mut self,
-        _context: &(),
+        _destroyer: &(),
         allocation_callbacks: Option<&vk::AllocationCallbacks>,
     ) {
         self.destroy_device(allocation_callbacks);
@@ -98,7 +98,7 @@ impl Destroyable for ash::Device {
 macro_rules! destroyable {
     ($destroy:ident, $Resource:ty) => {
         impl Destroyable for $Resource {
-            type Context = ash::Device;
+            type Destroyer = ash::Device;
 
             unsafe fn destroy_with(
                 &mut self,
@@ -139,34 +139,34 @@ destroyable!(
 destroyable!(destroy_sampler_ycbcr_conversion, vk::SamplerYcbcrConversion);
 
 // TODO: Look for ways to implement something vaguely equivalent to:
-//     Destroyable<Context=(&ash::Device, vk::CommandPool)> vk::CommandBuffer
-//     Destroyable<Context=(&ash::Device, vk::DescriptorPool)> vk::DescriptorSet
+//     Destroyable<Destroyer=(&ash::Device, vk::CommandPool)> vk::CommandBuffer
+//     Destroyable<Destroyer=(&ash::Device, vk::DescriptorPool)> vk::DescriptorSet
 
 impl<Resource: Destroyable> Destroyable for Vec<Resource> {
-    type Context = <Resource as Destroyable>::Context;
+    type Destroyer = <Resource as Destroyable>::Destroyer;
 
     unsafe fn destroy_with(
         &mut self,
-        context: &Self::Context,
+        destroyer: &Self::Destroyer,
         allocation_callbacks: Option<&vk::AllocationCallbacks>,
     ) {
         for mut resource in self.drain(..) {
-            resource.destroy_with(context, allocation_callbacks);
+            resource.destroy_with(destroyer, allocation_callbacks);
         }
     }
 }
 
 macro_rules! destroyable_ext {
-    ($Context:ty, $destroy:ident, $Resource:ty) => {
+    ($Destroyer:ty, $destroy:ident, $Resource:ty) => {
         impl Destroyable for $Resource {
-            type Context = $Context;
+            type Destroyer = $Destroyer;
 
             unsafe fn destroy_with(
                 &mut self,
-                context: &Self::Context,
+                destroyer: &Self::Destroyer,
                 allocation_callbacks: Option<&vk::AllocationCallbacks>,
             ) {
-                context.$destroy(*self, allocation_callbacks);
+                destroyer.$destroy(*self, allocation_callbacks);
             }
         }
     };

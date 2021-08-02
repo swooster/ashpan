@@ -1,3 +1,10 @@
+# Unreleased
+
+## Breaking changes
+
+* Renamed `Destroyable::Context` to `Destroyable::Destroyer` to make the most
+  common use-case more obvious.
+
 # Version 0.3.0
 
 * Removed `scopeguard` dependency. (technically a breaking change because

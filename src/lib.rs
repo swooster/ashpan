@@ -156,7 +156,7 @@
 //! # }
 //!
 //! impl Destroyable for Resources {
-//!     type Context = ash::Device;
+//!     type Destroyer = ash::Device;
 //!
 //!     unsafe fn destroy_with(
 //!         &mut self,
@@ -194,23 +194,23 @@ mod tests {
     use ash::vk;
 
     #[derive(Debug, PartialEq)]
-    struct DestructorCalled<Context> {
-        context: Context,
+    struct DestructorCalled<Destroyer> {
+        destroyer: Destroyer,
         allocation_callbacks: Option<*const vk::AllocationCallbacks>,
     }
 
-    struct TestResource<'a, Context>(&'a mut Option<DestructorCalled<Context>>);
+    struct TestResource<'a, Destroyer>(&'a mut Option<DestructorCalled<Destroyer>>);
 
-    impl<'a, Context: Copy> Destroyable for TestResource<'a, Context> {
-        type Context = Context;
+    impl<'a, Destroyer: Copy> Destroyable for TestResource<'a, Destroyer> {
+        type Destroyer = Destroyer;
 
         unsafe fn destroy_with(
             &mut self,
-            &context: &Context,
+            &destroyer: &Destroyer,
             allocation_callbacks: Option<&vk::AllocationCallbacks>,
         ) {
             *(self.0) = Some(DestructorCalled {
-                context,
+                destroyer,
                 allocation_callbacks: allocation_callbacks.map(|a| a as _),
             });
         }
@@ -228,7 +228,7 @@ mod tests {
         assert_eq!(
             destructor_called,
             Some(DestructorCalled {
-                context: (),
+                destroyer: (),
                 allocation_callbacks: Some(&allocation_callbacks as _)
             })
         );
@@ -266,14 +266,14 @@ mod tests {
         assert_eq!(
             destructor_called_0,
             Some(DestructorCalled {
-                context: 42,
+                destroyer: 42,
                 allocation_callbacks: Some(&allocation_callbacks as _)
             })
         );
         assert_eq!(
             destructor_called_1,
             Some(DestructorCalled {
-                context: 42,
+                destroyer: 42,
                 allocation_callbacks: Some(&allocation_callbacks as _)
             })
         );

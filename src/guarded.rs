@@ -16,11 +16,11 @@ pub type Guarded<'a, Resource> = GuardedResource<'static, Resource, &'a ash::Dev
 /// for Vulkan
 ///
 /// When the [`GuardedResource`] is dropped, the contained `Resource` is destroyed, generally by
-/// calling an appropriate method on the `Context` (usually an [`&ash::Device`](ash::Device)) with
-/// `allocation_callbacks`. The contained resource can be accessed by dereferencing or extracted
-/// with [`.take()`](Self::take). Application-specific types are supported if they implement
-/// [`Destroyable`]. The [`Guarded`] alias is provided for the common use-case where `Context`
-/// is [`&ash::Device`](ash::Device).
+/// calling an appropriate method on the `Destroyer` (usually an [`&ash::Device`](ash::Device))
+/// with `allocation_callbacks`. The contained resource can be accessed by dereferencing or
+/// extracted with [`.take()`](Self::take). Application-specific types are supported if they
+/// implement [`Destroyable`]. The [`Guarded`] alias is provided for the common use-case where
+/// `Destroyer` is [`&ash::Device`](ash::Device).
 ///
 /// ```
 /// use ash::{prelude::VkResult, vk};
@@ -45,27 +45,27 @@ pub type Guarded<'a, Resource> = GuardedResource<'static, Resource, &'a ash::Dev
 /// }
 /// ```
 #[derive(Debug)]
-pub struct GuardedResource<'a, Resource, Context>(
+pub struct GuardedResource<'a, Resource, Destroyer>(
     // Invariant: The option is always Some, except possibly while being dropped.
-    Option<ResourceAndContext<'a, Resource, Context>>,
+    Option<ResourceAndDestroyer<'a, Resource, Destroyer>>,
 )
 where
     Resource: Destroyable,
-    Context: Deref<Target = <Resource as Destroyable>::Context>;
+    Destroyer: Deref<Target = <Resource as Destroyable>::Destroyer>;
 
 #[derive(Debug)]
-struct ResourceAndContext<'a, Resource, Context> {
+struct ResourceAndDestroyer<'a, Resource, Destroyer> {
     resource: Resource,
-    context: Context,
+    destroyer: Destroyer,
     allocation_callbacks: Option<&'a vk::AllocationCallbacks>,
 }
 
-impl<'a, Resource, Context> GuardedResource<'a, Resource, Context>
+impl<'a, Resource, Destroyer> GuardedResource<'a, Resource, Destroyer>
 where
     Resource: Destroyable,
-    Context: Deref<Target = <Resource as Destroyable>::Context>,
+    Destroyer: Deref<Target = <Resource as Destroyable>::Destroyer>,
 {
-    /// Creates a [`GuardedResource`] to hold the passed `resource`. `context` and
+    /// Creates a [`GuardedResource`] to hold the passed `resource`. `destroyer` and
     /// `allocation_callbacks` are used during destruction.
     ///
     /// # Safety
@@ -74,12 +74,12 @@ where
     /// dropped.
     pub unsafe fn new(
         resource: Resource,
-        context: Context,
+        destroyer: Destroyer,
         allocation_callbacks: Option<&'a vk::AllocationCallbacks>,
     ) -> Self {
-        Self(Some(ResourceAndContext {
+        Self(Some(ResourceAndDestroyer {
             resource,
-            context,
+            destroyer,
             allocation_callbacks,
         }))
     }
@@ -97,50 +97,50 @@ where
     }
 }
 
-impl<'a, Resource, Context> AsRef<Resource> for GuardedResource<'a, Resource, Context>
+impl<'a, Resource, Destroyer> AsRef<Resource> for GuardedResource<'a, Resource, Destroyer>
 where
     Resource: Destroyable,
-    Context: Deref<Target = <Resource as Destroyable>::Context>,
+    Destroyer: Deref<Target = <Resource as Destroyable>::Destroyer>,
 {
     fn as_ref(&self) -> &Resource {
         &*self
     }
 }
 
-impl<'a, Resource, Context> AsMut<Resource> for GuardedResource<'a, Resource, Context>
+impl<'a, Resource, Destroyer> AsMut<Resource> for GuardedResource<'a, Resource, Destroyer>
 where
     Resource: Destroyable,
-    Context: Deref<Target = <Resource as Destroyable>::Context>,
+    Destroyer: Deref<Target = <Resource as Destroyable>::Destroyer>,
 {
     fn as_mut(&mut self) -> &mut Resource {
         &mut *self
     }
 }
 
-impl<'a, Resource, Context> Borrow<Resource> for GuardedResource<'a, Resource, Context>
+impl<'a, Resource, Destroyer> Borrow<Resource> for GuardedResource<'a, Resource, Destroyer>
 where
     Resource: Destroyable,
-    Context: Deref<Target = <Resource as Destroyable>::Context>,
+    Destroyer: Deref<Target = <Resource as Destroyable>::Destroyer>,
 {
     fn borrow(&self) -> &Resource {
         &*self
     }
 }
 
-impl<'a, Resource, Context> BorrowMut<Resource> for GuardedResource<'a, Resource, Context>
+impl<'a, Resource, Destroyer> BorrowMut<Resource> for GuardedResource<'a, Resource, Destroyer>
 where
     Resource: Destroyable,
-    Context: Deref<Target = <Resource as Destroyable>::Context>,
+    Destroyer: Deref<Target = <Resource as Destroyable>::Destroyer>,
 {
     fn borrow_mut(&mut self) -> &mut Resource {
         &mut *self
     }
 }
 
-impl<'a, Resource, Context> Deref for GuardedResource<'a, Resource, Context>
+impl<'a, Resource, Destroyer> Deref for GuardedResource<'a, Resource, Destroyer>
 where
     Resource: Destroyable,
-    Context: Deref<Target = <Resource as Destroyable>::Context>,
+    Destroyer: Deref<Target = <Resource as Destroyable>::Destroyer>,
 {
     type Target = Resource;
 
@@ -149,29 +149,29 @@ where
     }
 }
 
-impl<'a, Resource, Context> DerefMut for GuardedResource<'a, Resource, Context>
+impl<'a, Resource, Destroyer> DerefMut for GuardedResource<'a, Resource, Destroyer>
 where
     Resource: Destroyable,
-    Context: Deref<Target = <Resource as Destroyable>::Context>,
+    Destroyer: Deref<Target = <Resource as Destroyable>::Destroyer>,
 {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0.as_mut().unwrap().resource
     }
 }
 
-impl<'a, Resource, Context> Drop for GuardedResource<'a, Resource, Context>
+impl<'a, Resource, Destroyer> Drop for GuardedResource<'a, Resource, Destroyer>
 where
     Resource: Destroyable,
-    Context: Deref<Target = <Resource as Destroyable>::Context>,
+    Destroyer: Deref<Target = <Resource as Destroyable>::Destroyer>,
 {
     fn drop(&mut self) {
-        if let Some(ResourceAndContext {
+        if let Some(ResourceAndDestroyer {
             resource,
-            context,
+            destroyer,
             allocation_callbacks,
         }) = self.0.as_mut()
         {
-            unsafe { resource.destroy_with(context, *allocation_callbacks) }
+            unsafe { resource.destroy_with(destroyer, *allocation_callbacks) }
         }
     }
 }
