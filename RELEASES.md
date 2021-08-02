@@ -1,3 +1,8 @@
+# Unreleased
+
+* Removed `scopeguard` dependency. (technically a breaking change because
+  `DeviceExt` now requires `Deref<Target=ash::Device>`)
+
 # Version 0.2.0
 
 ## Breaking changes

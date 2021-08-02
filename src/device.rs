@@ -194,7 +194,7 @@ type PipelinesResult<T> = Result<T, (T, vk::Result)>;
 
 /// Extension trait adding guarded methods to [`ash::Device`]
 #[allow(clippy::missing_safety_doc)]
-pub trait DeviceExt: Sized {
+pub trait DeviceExt: Sized + Deref<Target = ash::Device> {
     device_methods!(declaration);
 
     /// Same as [`create_graphics_pipelines`](ash::Device::create_graphics_pipelines) but returns

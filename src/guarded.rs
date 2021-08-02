@@ -3,7 +3,6 @@ use std::convert::{AsMut, AsRef};
 use std::ops::{Deref, DerefMut};
 
 use ash::vk;
-use scopeguard::ScopeGuard;
 
 use crate::Destroyable;
 
@@ -13,7 +12,8 @@ use crate::Destroyable;
 /// fine-grained RAII should be short-lived, making references preferred.
 pub type Guarded<'a, Resource> = GuardedResource<'static, Resource, &'a ash::Device>;
 
-/// [`ScopeGuard`] tailored for Vulkan
+/// [`ScopeGuard`](https://docs.rs/scopeguard/1.1.0/scopeguard/struct.ScopeGuard.html) tailored
+/// for Vulkan
 ///
 /// When the [`GuardedResource`] is dropped, the contained `Resource` is destroyed, generally by
 /// calling an appropriate method on the `Context` (usually an [`&ash::Device`](ash::Device)) with
@@ -46,10 +46,12 @@ pub type Guarded<'a, Resource> = GuardedResource<'static, Resource, &'a ash::Dev
 /// ```
 #[derive(Debug)]
 pub struct GuardedResource<'a, Resource, Context>(
-    ClosurelessScopeGuard<ResourceAndContext<'a, Resource, Context>>,
-);
-
-type ClosurelessScopeGuard<T> = ScopeGuard<T, fn(T)>;
+    // Invariant: The option is always Some, except possibly while being dropped.
+    Option<ResourceAndContext<'a, Resource, Context>>,
+)
+where
+    Resource: Destroyable,
+    Context: Deref<Target = <Resource as Destroyable>::Context>;
 
 #[derive(Debug)]
 struct ResourceAndContext<'a, Resource, Context> {
@@ -75,67 +77,101 @@ where
         context: Context,
         allocation_callbacks: Option<&'a vk::AllocationCallbacks>,
     ) -> Self {
-        Self(ScopeGuard::with_strategy(
-            ResourceAndContext {
-                resource,
-                context,
-                allocation_callbacks,
-            },
-            |ResourceAndContext {
-                 mut resource,
-                 context,
-                 allocation_callbacks,
-             }| unsafe {
-                resource.destroy_with(&*context, allocation_callbacks);
-            },
-        ))
+        Self(Some(ResourceAndContext {
+            resource,
+            context,
+            allocation_callbacks,
+        }))
     }
 
     /// Extract the inner value without destroying it.
     ///
     /// ## Note
     ///
-    /// Unlike [`ScopeGuard::into_inner`], this is a method because it's not intended to work with
-    /// arbitrary types, so avoiding shadowing `.take()` is less important than convenience.
-    pub fn take(self) -> Resource {
-        ScopeGuard::into_inner(self.0).resource
+    /// Unlike
+    /// [`ScopeGuard::into_inner`](https://docs.rs/scopeguard/1.1.0/scopeguard/struct.ScopeGuard.html#method.into_inner),
+    /// this is a method because it's not intended to work with arbitrary types, so avoiding
+    /// shadowing `.take()` is less important than convenience.
+    pub fn take(mut self) -> Resource {
+        self.0.take().unwrap().resource
     }
 }
 
-impl<'a, Resource, Context> AsRef<Resource> for GuardedResource<'a, Resource, Context> {
+impl<'a, Resource, Context> AsRef<Resource> for GuardedResource<'a, Resource, Context>
+where
+    Resource: Destroyable,
+    Context: Deref<Target = <Resource as Destroyable>::Context>,
+{
     fn as_ref(&self) -> &Resource {
         &*self
     }
 }
 
-impl<'a, Resource, Context> AsMut<Resource> for GuardedResource<'a, Resource, Context> {
+impl<'a, Resource, Context> AsMut<Resource> for GuardedResource<'a, Resource, Context>
+where
+    Resource: Destroyable,
+    Context: Deref<Target = <Resource as Destroyable>::Context>,
+{
     fn as_mut(&mut self) -> &mut Resource {
         &mut *self
     }
 }
 
-impl<'a, Resource, Context> Borrow<Resource> for GuardedResource<'a, Resource, Context> {
+impl<'a, Resource, Context> Borrow<Resource> for GuardedResource<'a, Resource, Context>
+where
+    Resource: Destroyable,
+    Context: Deref<Target = <Resource as Destroyable>::Context>,
+{
     fn borrow(&self) -> &Resource {
         &*self
     }
 }
 
-impl<'a, Resource, Context> BorrowMut<Resource> for GuardedResource<'a, Resource, Context> {
+impl<'a, Resource, Context> BorrowMut<Resource> for GuardedResource<'a, Resource, Context>
+where
+    Resource: Destroyable,
+    Context: Deref<Target = <Resource as Destroyable>::Context>,
+{
     fn borrow_mut(&mut self) -> &mut Resource {
         &mut *self
     }
 }
 
-impl<'a, Resource, Context> Deref for GuardedResource<'a, Resource, Context> {
+impl<'a, Resource, Context> Deref for GuardedResource<'a, Resource, Context>
+where
+    Resource: Destroyable,
+    Context: Deref<Target = <Resource as Destroyable>::Context>,
+{
     type Target = Resource;
 
     fn deref(&self) -> &Self::Target {
-        &self.0.resource
+        &self.0.as_ref().unwrap().resource
     }
 }
 
-impl<'a, Resource, Context> DerefMut for GuardedResource<'a, Resource, Context> {
+impl<'a, Resource, Context> DerefMut for GuardedResource<'a, Resource, Context>
+where
+    Resource: Destroyable,
+    Context: Deref<Target = <Resource as Destroyable>::Context>,
+{
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0.resource
+        &mut self.0.as_mut().unwrap().resource
+    }
+}
+
+impl<'a, Resource, Context> Drop for GuardedResource<'a, Resource, Context>
+where
+    Resource: Destroyable,
+    Context: Deref<Target = <Resource as Destroyable>::Context>,
+{
+    fn drop(&mut self) {
+        if let Some(ResourceAndContext {
+            resource,
+            context,
+            allocation_callbacks,
+        }) = self.0.as_mut()
+        {
+            unsafe { resource.destroy_with(context, *allocation_callbacks) }
+        }
     }
 }

@@ -1,8 +1,9 @@
 #![doc(html_root_url = "https://docs.rs/ashpan/0.2.0")]
 //! This crate provides RAII helpers for [`ash`]. In particular:
 //!
-//! * [`Guarded`]/[`GuardedResource`] is essentially a [`ScopeGuard`](scopeguard::ScopeGuard) that
-//!   selects an appropriate destructor automatically.
+//! * [`Guarded`]/[`GuardedResource`] is essentially a
+//!   [`ScopeGuard`](https://docs.rs/scopeguard/1.1.0/scopeguard/struct.ScopeGuard.html)
+//!   that selects an appropriate destructor automatically.
 //! * [`DeviceExt`] (along with [`EntryExt`] and [`InstanceExt`]) provide convenience methods to
 //!   create resources and wrap them in [`GuardedResource`]s.
 //! * [`Destroyable`] allows you to extend the behavior of [`GuardedResource`].
@@ -47,8 +48,8 @@
 //! # }
 //! ```
 //!
-//! It's straightforward to solve this with [`scopeguard`], but it tends to be a bit verbose and
-//! repetitive:
+//! It's straightforward to solve this with [`scopeguard`](https://docs.rs/scopeguard/), but it
+//! tends to be a bit verbose and repetitive:
 //!
 //! ```
 //! # use ash::{prelude::VkResult, vk};
@@ -96,9 +97,10 @@
 //! # }
 //! ```
 //!
-//! [`ashpan`](crate) reduces the friction of using [`scopeguard`] with [`ash`] by automatically
-//! selecting the destructor, passing the same `allocation_callbacks` to the destructor that were
-//! used for resource creation and making guarded resources convenient to extract:
+//! [`ashpan`](crate) reduces the friction of using [`scopeguard`](https://docs.rs/scopeguard/)
+//! with [`ash`] by automatically selecting the destructor, passing the same
+//! `allocation_callbacks` to the destructor that were used for resource creation and making
+//! guarded resources convenient to extract:
 //!
 //! ```
 //! # use ash::{prelude::VkResult, vk};
