@@ -1,6 +1,6 @@
 # Releases
 
-## Unreleased
+## Version 0.4.1
 
 * Improved wording of `Destroyable` docs.
 
