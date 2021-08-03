@@ -5,10 +5,9 @@ use ash::{
 
 /// Indicates that a type is destroyable
 ///
-/// Vulkan resources generally need to be created and destroyed with a `Destroyer` (usually an
-/// [`&ash::Device`](ash::Device)) and `allocation_callbacks`. The [`Destroyable`] trait provides
-/// a common interface, allowing compile-time selection of an appropriate destructor based on the
-/// resource type.
+/// Vulkan resources generally need to be created and destroyed via an [`ash::Device`] or a Vulkan
+/// extension. The [`Destroyable`] trait provides a common interface, allowing compile-time
+/// selection of an appropriate destructor based on the resource type.
 ///
 /// Implementing [`Destroyable`] for custom types makes them work with
 /// [`GuardedResource`](crate::GuardedResource):
@@ -59,7 +58,7 @@ pub trait Destroyable {
     /// The type that performs the destruction of the `Destroyable`
     type Destroyer: ?Sized;
 
-    /// Destroys `self` via `Destroyer` with `allocation_callbacks`.
+    /// Destroys `self` via `destroyer` with `allocation_callbacks`.
     ///
     /// # Safety
     ///

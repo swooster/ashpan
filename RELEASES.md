@@ -1,3 +1,7 @@
+# Unreleased
+
+* Improved phrasing of `Destroyable` docs.
+
 # Version 0.4.0
 
 ## Breaking changes
