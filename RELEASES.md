@@ -1,6 +1,6 @@
 # Releases
 
-## Unreleased
+## Version 0.4.2
 
 * Added `GuardedDevice` and `GuardedInstance` type aliases.
 
