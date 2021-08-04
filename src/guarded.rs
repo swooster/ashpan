@@ -8,15 +8,15 @@ use crate::Destroyable;
 
 /// Most common usecase for [`GuardedResource`]
 ///
-/// The vast majority of resource types are created and destroyed with [`ash::Device`], and
-/// fine-grained RAII should be short-lived, making references preferred.
-pub type Guarded<'a, Resource> = GuardedResource<'static, Resource, &'a ash::Device>;
+/// Fine-grained RAII should be short-lived, making references preferred.
+pub type Guarded<'a, Resource> =
+    GuardedResource<'static, Resource, &'a <Resource as Destroyable>::Destroyer>;
 
 /// [`GuardedResource`] for [`ash::Instance`]
-pub type GuardedInstance = GuardedResource<'static, ash::Instance, &'static ()>;
+pub type GuardedInstance = Guarded<'static, ash::Instance>;
 
 /// [`GuardedResource`] for [`ash::Device`]
-pub type GuardedDevice = GuardedResource<'static, ash::Device, &'static ()>;
+pub type GuardedDevice = Guarded<'static, ash::Device>;
 
 /// [`ScopeGuard`](https://docs.rs/scopeguard/1.1.0/scopeguard/struct.ScopeGuard.html) tailored
 /// for Vulkan

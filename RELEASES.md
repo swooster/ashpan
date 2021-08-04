@@ -1,5 +1,10 @@
 # Releases
 
+## Unreleased
+
+* Extended `Guarded` to work with all `Destroyable` resources, not just ones
+  destroyable by `ash::Device`.
+
 ## Version 0.4.2
 
 * Added `GuardedDevice` and `GuardedInstance` type aliases.
