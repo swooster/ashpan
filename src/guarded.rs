@@ -9,8 +9,8 @@ use crate::Destroyable;
 /// Most common usecase for [`GuardedResource`]
 ///
 /// Fine-grained RAII should be short-lived, making references preferred.
-pub type Guarded<'a, Resource> =
-    GuardedResource<'static, Resource, &'a <Resource as Destroyable>::Destroyer>;
+pub type Guarded<'r, Resource> =
+    GuardedResource<'static, Resource, &'r <Resource as Destroyable>::Destroyer>;
 
 /// [`GuardedResource`] for [`ash::Instance`]
 pub type GuardedInstance = Guarded<'static, ash::Instance>;
@@ -51,22 +51,22 @@ pub type GuardedDevice = Guarded<'static, ash::Device>;
 /// }
 /// ```
 #[derive(Debug)]
-pub struct GuardedResource<'a, Resource, Destroyer>(
+pub struct GuardedResource<'alloc_cb, Resource, Destroyer>(
     // Invariant: The option is always Some, except possibly while being dropped.
-    Option<ResourceAndDestroyer<'a, Resource, Destroyer>>,
+    Option<ResourceAndDestroyer<'alloc_cb, Resource, Destroyer>>,
 )
 where
     Resource: Destroyable,
     Destroyer: Deref<Target = <Resource as Destroyable>::Destroyer>;
 
 #[derive(Debug)]
-struct ResourceAndDestroyer<'a, Resource, Destroyer> {
+struct ResourceAndDestroyer<'alloc_cb, Resource, Destroyer> {
     resource: Resource,
     destroyer: Destroyer,
-    allocation_callbacks: Option<&'a vk::AllocationCallbacks>,
+    allocation_callbacks: Option<&'alloc_cb vk::AllocationCallbacks>,
 }
 
-impl<'a, Resource, Destroyer> GuardedResource<'a, Resource, Destroyer>
+impl<'alloc_cb, Resource, Destroyer> GuardedResource<'alloc_cb, Resource, Destroyer>
 where
     Resource: Destroyable,
     Destroyer: Deref<Target = <Resource as Destroyable>::Destroyer>,
@@ -81,7 +81,7 @@ where
     pub unsafe fn new(
         resource: Resource,
         destroyer: Destroyer,
-        allocation_callbacks: Option<&'a vk::AllocationCallbacks>,
+        allocation_callbacks: Option<&'alloc_cb vk::AllocationCallbacks>,
     ) -> Self {
         Self(Some(ResourceAndDestroyer {
             resource,
@@ -103,7 +103,8 @@ where
     }
 }
 
-impl<'a, Resource, Destroyer> AsRef<Resource> for GuardedResource<'a, Resource, Destroyer>
+impl<'alloc_cb, Resource, Destroyer> AsRef<Resource>
+    for GuardedResource<'alloc_cb, Resource, Destroyer>
 where
     Resource: Destroyable,
     Destroyer: Deref<Target = <Resource as Destroyable>::Destroyer>,
@@ -113,7 +114,8 @@ where
     }
 }
 
-impl<'a, Resource, Destroyer> AsMut<Resource> for GuardedResource<'a, Resource, Destroyer>
+impl<'alloc_cb, Resource, Destroyer> AsMut<Resource>
+    for GuardedResource<'alloc_cb, Resource, Destroyer>
 where
     Resource: Destroyable,
     Destroyer: Deref<Target = <Resource as Destroyable>::Destroyer>,
@@ -123,7 +125,8 @@ where
     }
 }
 
-impl<'a, Resource, Destroyer> Borrow<Resource> for GuardedResource<'a, Resource, Destroyer>
+impl<'alloc_cb, Resource, Destroyer> Borrow<Resource>
+    for GuardedResource<'alloc_cb, Resource, Destroyer>
 where
     Resource: Destroyable,
     Destroyer: Deref<Target = <Resource as Destroyable>::Destroyer>,
@@ -133,7 +136,8 @@ where
     }
 }
 
-impl<'a, Resource, Destroyer> BorrowMut<Resource> for GuardedResource<'a, Resource, Destroyer>
+impl<'alloc_cb, Resource, Destroyer> BorrowMut<Resource>
+    for GuardedResource<'alloc_cb, Resource, Destroyer>
 where
     Resource: Destroyable,
     Destroyer: Deref<Target = <Resource as Destroyable>::Destroyer>,
@@ -143,7 +147,7 @@ where
     }
 }
 
-impl<'a, Resource, Destroyer> Deref for GuardedResource<'a, Resource, Destroyer>
+impl<'alloc_cb, Resource, Destroyer> Deref for GuardedResource<'alloc_cb, Resource, Destroyer>
 where
     Resource: Destroyable,
     Destroyer: Deref<Target = <Resource as Destroyable>::Destroyer>,
@@ -155,7 +159,7 @@ where
     }
 }
 
-impl<'a, Resource, Destroyer> DerefMut for GuardedResource<'a, Resource, Destroyer>
+impl<'alloc_cb, Resource, Destroyer> DerefMut for GuardedResource<'alloc_cb, Resource, Destroyer>
 where
     Resource: Destroyable,
     Destroyer: Deref<Target = <Resource as Destroyable>::Destroyer>,
@@ -165,7 +169,7 @@ where
     }
 }
 
-impl<'a, Resource, Destroyer> Drop for GuardedResource<'a, Resource, Destroyer>
+impl<'alloc_cb, Resource, Destroyer> Drop for GuardedResource<'alloc_cb, Resource, Destroyer>
 where
     Resource: Destroyable,
     Destroyer: Deref<Target = <Resource as Destroyable>::Destroyer>,

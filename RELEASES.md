@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+* Give lifetimes in `Guarded` and `GuardedResource` (slightly) more descriptive
+  abbreviated names rather just `'a`.
 * Extended `Guarded` to work with all `Destroyable` resources, not just ones
   destroyable by `ash::Device`.
 
