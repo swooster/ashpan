@@ -12,6 +12,12 @@ use crate::Destroyable;
 /// fine-grained RAII should be short-lived, making references preferred.
 pub type Guarded<'a, Resource> = GuardedResource<'static, Resource, &'a ash::Device>;
 
+/// [`GuardedResource`] for [`ash::Instance`]
+pub type GuardedInstance = GuardedResource<'static, ash::Instance, &'static ()>;
+
+/// [`GuardedResource`] for [`ash::Device`]
+pub type GuardedDevice = GuardedResource<'static, ash::Device, &'static ()>;
+
 /// [`ScopeGuard`](https://docs.rs/scopeguard/1.1.0/scopeguard/struct.ScopeGuard.html) tailored
 /// for Vulkan
 ///

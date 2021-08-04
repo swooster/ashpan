@@ -185,7 +185,7 @@ mod instance;
 pub use destroy::Destroyable;
 pub use device::DeviceExt;
 pub use entry::EntryExt;
-pub use guarded::{Guarded, GuardedResource};
+pub use guarded::{Guarded, GuardedDevice, GuardedInstance, GuardedResource};
 pub use instance::InstanceExt;
 
 #[cfg(test)]

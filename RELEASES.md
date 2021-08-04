@@ -1,5 +1,9 @@
 # Releases
 
+## Unreleased
+
+* Added `GuardedDevice` and `GuardedInstance` type aliases.
+
 ## Version 0.4.1
 
 * Improved wording of `Destroyable` docs.
