@@ -1,6 +1,6 @@
 # Releases
 
-## Unreleased
+## Version 0.4.3
 
 * Give lifetimes in `Guarded` and `GuardedResource` (slightly) more descriptive
   abbreviated names rather just `'a`.

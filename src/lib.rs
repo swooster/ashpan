@@ -1,4 +1,4 @@
-#![doc(html_root_url = "https://docs.rs/ashpan/0.4.2")]
+#![doc(html_root_url = "https://docs.rs/ashpan/0.4.3")]
 //! This crate provides RAII helpers for [`ash`]. In particular:
 //!
 //! * [`Guarded`]/[`GuardedResource`] is essentially a
