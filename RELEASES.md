@@ -1,5 +1,11 @@
 # Releases
 
+## Unreleased
+
+* Removed `GuardedInstance` and `GuardedDevice` because `Guarded` now supports
+  non-`ash::Device` destroyers; use `Guarded<'static, ash::Instance>` or
+  `Guarded<'static, ash::Device>` instead.
+
 ## Version 0.4.3
 
 * Give lifetimes in `Guarded` and `GuardedResource` (slightly) more descriptive

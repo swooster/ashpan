@@ -14,12 +14,6 @@ use crate::Destroyable;
 pub type Guarded<'r, Resource> =
     GuardedResource<'static, Resource, &'r <Resource as Destroyable>::Destroyer>;
 
-/// [`GuardedResource`] for [`ash::Instance`]
-pub type GuardedInstance = Guarded<'static, ash::Instance>;
-
-/// [`GuardedResource`] for [`ash::Device`]
-pub type GuardedDevice = Guarded<'static, ash::Device>;
-
 /// [`ScopeGuard`](https://docs.rs/scopeguard/1.1.0/scopeguard/struct.ScopeGuard.html) tailored
 /// for Vulkan
 ///
