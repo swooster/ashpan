@@ -83,7 +83,7 @@
 //! }
 //!
 //! // fn create_pipeline_layout(...) { ... }
-//! // fn create_pipeline(...) {...}
+//! // fn create_pipeline(...) { ... }
 //!
 //! # fn create_pipeline_layout(_: &ash::Device) -> VkResult<Guarded<vk::PipelineLayout>> {
 //! #     unimplemented!()
@@ -129,7 +129,7 @@
 //! }
 //!
 //! // fn create_pipeline_layout(...) { ... }
-//! // fn create_pipeline(...) {...}
+//! // fn create_pipeline(...) { ... }
 //!
 //! # fn create_pipeline_layout(_: &ash::Device) -> VkResult<Guarded<vk::PipelineLayout>> {
 //! #     unimplemented!()

@@ -9,6 +9,8 @@ use crate::Destroyable;
 /// Most common usecase for [`GuardedResource`]
 ///
 /// Fine-grained RAII should be short-lived, making references preferred.
+///
+/// Note that `'r` can be `'static` when `Resource` is [`ash::Instance`] or [`ash::Device`].
 pub type Guarded<'r, Resource> =
     GuardedResource<'static, Resource, &'r <Resource as Destroyable>::Destroyer>;
 
@@ -26,7 +28,7 @@ pub type GuardedDevice = Guarded<'static, ash::Device>;
 /// with `allocation_callbacks`. The contained resource can be accessed by dereferencing or
 /// extracted with [`.take()`](Self::take). Application-specific types are supported if they
 /// implement [`Destroyable`]. The [`Guarded`] alias is provided for the common use-case where
-/// `Destroyer` is [`&ash::Device`](ash::Device).
+/// `Destroyer` is a reference.
 ///
 /// ```
 /// use ash::{prelude::VkResult, vk};
