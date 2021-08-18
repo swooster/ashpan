@@ -1,6 +1,6 @@
 # Releases
 
-## Unreleased
+## Version 0.5.0
 
 * Removed `GuardedInstance` and `GuardedDevice` because `Guarded` now supports
   non-`ash::Device` destroyers; use `Guarded<'static, ash::Instance>` or
