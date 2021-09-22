@@ -10,9 +10,9 @@ use crate::Destroyable;
 ///
 /// Fine-grained RAII should be short-lived, making references preferred.
 ///
-/// Note that `'r` can be `'static` when `Resource` is [`ash::Instance`] or [`ash::Device`].
-pub type Guarded<'r, Resource> =
-    GuardedResource<'static, Resource, &'r <Resource as Destroyable>::Destroyer>;
+/// Note that `'d` can be `'static` when `Resource` is [`ash::Instance`] or [`ash::Device`].
+pub type Guarded<'d, Resource> =
+    GuardedResource<'static, Resource, &'d <Resource as Destroyable>::Destroyer>;
 
 /// [`ScopeGuard`](https://docs.rs/scopeguard/1.1.0/scopeguard/struct.ScopeGuard.html) tailored
 /// for Vulkan
@@ -99,7 +99,7 @@ where
         self.0.as_ref().unwrap().allocation_callbacks
     }
 
-    /// Extract the inner value without destroying it.
+    /// Extracts the inner value without destroying it.
     ///
     /// ## Note
     ///

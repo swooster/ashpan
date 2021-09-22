@@ -143,7 +143,7 @@
 //! # }
 //! ```
 //!
-//! It's also possible to extend `Guarded` to handle application-specific types:
+//! It's also possible to extend [`Guarded`] to handle application-specific types:
 //!
 //! ```
 //! # use ash::{prelude::VkResult, vk};
