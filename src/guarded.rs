@@ -86,7 +86,7 @@ where
         }))
     }
 
-    /// Returns the destroyer smartpointer/reference passed during construction..
+    /// Returns the destroyer smartpointer/reference passed during construction.
     pub fn destroyer(&self) -> Destroyer
     where
         Destroyer: Clone,
@@ -94,7 +94,7 @@ where
         self.0.as_ref().unwrap().destroyer.clone()
     }
 
-    /// Returns the allocation callbacks smartpointer/reference passed during construction..
+    /// Returns the allocation callbacks passed during construction.
     pub fn allocation_callbacks(&self) -> Option<&'alloc_cb vk::AllocationCallbacks> {
         self.0.as_ref().unwrap().allocation_callbacks
     }
