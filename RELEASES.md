@@ -1,5 +1,9 @@
 # Releases
 
+## Version 0.5.2
+
+* `GuardedResource` documentation fixes
+
 ## Version 0.5.1
 
 * Added `destroyer` and `allocation_callbacks` accessors to `GuardedResource`.
