@@ -1,5 +1,9 @@
 # Releases
 
+## Unreleased
+
+* Added `destroyer` and `allocation_callbacks` accessors to `GuardedResource`.
+
 ## Version 0.5.0
 
 * Removed `GuardedInstance` and `GuardedDevice` because `Guarded` now supports
