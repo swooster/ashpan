@@ -1,6 +1,6 @@
 # Releases
 
-## Unreleased
+## Version 0.5.3
 
 * Update `ash` dependency to 0.34.0
 
