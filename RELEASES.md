@@ -1,5 +1,9 @@
 # Releases
 
+## Unreleased
+
+* Update `ash` dependency to 0.34.0
+
 ## Version 0.5.2
 
 * `GuardedResource` documentation fixes
