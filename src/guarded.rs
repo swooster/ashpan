@@ -112,6 +112,144 @@ where
     }
 }
 
+impl<'alloc_cb, Resource, Destroyer> GuardedResource<'alloc_cb, Vec<Resource>, Destroyer>
+where
+    Resource: Destroyable,
+    Destroyer: Deref<Target = <Resource as Destroyable>::Destroyer>,
+{
+    /// Creates a [`GuardedResource`] to hold a [`Vec<Resource>`] populated from `resources`.
+    /// `destroyer` and `allocation_callbacks` are used during destruction.
+    ///
+    /// If the iterator returns an error, then iteration is aborted and all resources created thus
+    /// far are destroyed in first-to-last order.
+    ///
+    /// # Safety
+    ///
+    /// You must ensure that it is safe to destroy the resources when the [`GuardedResource`] is
+    /// dropped.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use ash::{prelude::VkResult, vk};
+    /// use ashpan::Guarded;
+    ///
+    /// unsafe fn create_swapchain_image_views(
+    ///     device: &ash::Device,
+    ///     swapchain_fn: ash::extensions::khr::Swapchain,
+    ///     swapchain: vk::SwapchainKHR,
+    ///     format: vk::Format,
+    /// ) -> VkResult<Guarded<Vec<vk::ImageView>>> {
+    ///     let subresource_range = vk::ImageSubresourceRange::builder()
+    ///         .aspect_mask(vk::ImageAspectFlags::COLOR)
+    ///         .level_count(1)
+    ///         .layer_count(1)
+    ///         .build();
+    ///     let images = swapchain_fn.get_swapchain_images(swapchain)?;
+    ///     let image_views = images.into_iter().map(|image| {
+    ///         let create_info = vk::ImageViewCreateInfo::builder()
+    ///             .view_type(vk::ImageViewType::TYPE_2D)
+    ///             .format(format)
+    ///             .subresource_range(subresource_range)
+    ///             .image(image);
+    ///         device.create_image_view(&create_info, None)
+    ///     });
+    ///     Guarded::try_new_from(image_views, device, None)
+    /// }
+    ///
+    /// ```
+    pub unsafe fn try_new_from<E>(
+        resources: impl IntoIterator<Item = Result<Resource, E>>,
+        destroyer: Destroyer,
+        allocation_callbacks: Option<&'alloc_cb vk::AllocationCallbacks>,
+    ) -> Result<Self, E> {
+        // TODO: imitate Vec::extend_desugared()'s capacity management?
+        let resources = resources.into_iter();
+        let (min_capacity, _) = resources.size_hint();
+        let mut guarded_resources = Self::new(
+            Vec::with_capacity(min_capacity),
+            destroyer,
+            allocation_callbacks,
+        );
+        for resource in resources {
+            guarded_resources.push(resource?);
+        }
+        Ok(guarded_resources)
+    }
+}
+
+impl<'alloc_cb, Resource, Destroyer, const N: usize>
+    GuardedResource<'alloc_cb, [Resource; N], Destroyer>
+where
+    Resource: Destroyable,
+    Destroyer: Deref<Target = <Resource as Destroyable>::Destroyer>,
+{
+    /// Creates a [`GuardedResource`] to hold an array of resources. `destroyer` and
+    /// `allocation_callbacks` are used during destruction.
+    ///
+    /// The array of resources is populated by repeatedly calling `resource_factory(index)`.
+    /// If an error is encountered, resource creation is aborted and all resources created thus
+    /// far are destroyed in first-to-last order.
+    ///
+    /// # Safety
+    ///
+    /// You must ensure that it is safe to destroy the resources when the [`GuardedResource`] is
+    /// dropped.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use ash::{prelude::VkResult, vk};
+    /// use ashpan::Guarded;
+    ///
+    /// unsafe fn create_frame_image_views<const N: usize>(
+    ///     device: &ash::Device,
+    ///     frame_images: vk::Image,
+    ///     format: vk::Format,
+    /// ) -> VkResult<Guarded<[vk::ImageView; N]>> {
+    ///     let create_image_view = |layer| {
+    ///         let subresource_range = vk::ImageSubresourceRange::builder()
+    ///             .aspect_mask(vk::ImageAspectFlags::COLOR)
+    ///             .level_count(1)
+    ///             .base_array_layer(layer as u32)
+    ///             .layer_count(1)
+    ///             .build();
+    ///         let create_info = vk::ImageViewCreateInfo::builder()
+    ///             .view_type(vk::ImageViewType::TYPE_2D)
+    ///             .format(format)
+    ///             .subresource_range(subresource_range)
+    ///             .image(frame_images);
+    ///         device.create_image_view(&create_info, None)
+    ///     };
+    ///     Guarded::try_new_with(create_image_view, device, None)
+    /// }
+    ///
+    /// ```
+    pub unsafe fn try_new_with<E>(
+        mut resource_factory: impl FnMut(usize) -> Result<Resource, E>,
+        destroyer: Destroyer,
+        allocation_callbacks: Option<&'alloc_cb vk::AllocationCallbacks>,
+    ) -> Result<Self, E> {
+        let mut resources = [(); N].map(|_| None);
+
+        for (i, resource) in resources.iter_mut().enumerate() {
+            *resource = Some(GuardedResource::new(
+                resource_factory(i)?,
+                &*destroyer,
+                allocation_callbacks,
+            ));
+        }
+
+        let resources = resources.map(|resource| {
+            resource
+                .expect("Bug in GuardedResource::new_with(): uninitialized resources")
+                .take()
+        });
+
+        Ok(Self::new(resources, destroyer, allocation_callbacks))
+    }
+}
+
 impl<'alloc_cb, Resource, Destroyer> AsRef<Resource>
     for GuardedResource<'alloc_cb, Resource, Destroyer>
 where
@@ -192,5 +330,229 @@ where
         {
             unsafe { resource.destroy_with(destroyer, *allocation_callbacks) }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{Destroyable, GuardedResource};
+    use ash::vk;
+
+    #[derive(Debug, PartialEq)]
+    struct DestructorCalled<Destroyer> {
+        destroyer: Destroyer,
+        allocation_callbacks: Option<*const vk::AllocationCallbacks>,
+    }
+
+    struct TestResource<'a, Destroyer>(&'a mut Option<DestructorCalled<Destroyer>>);
+
+    impl<'a, Destroyer: Copy> Destroyable for TestResource<'a, Destroyer> {
+        type Destroyer = Destroyer;
+
+        unsafe fn destroy_with(
+            &mut self,
+            &destroyer: &Destroyer,
+            allocation_callbacks: Option<&vk::AllocationCallbacks>,
+        ) {
+            *(self.0) = Some(DestructorCalled {
+                destroyer,
+                allocation_callbacks: allocation_callbacks.map(|a| a as _),
+            });
+        }
+    }
+
+    #[test]
+    fn sanity_check_drop_guarded_resource() {
+        let allocation_callbacks = Default::default();
+        let mut destructor_called = None;
+        let resource = TestResource(&mut destructor_called);
+
+        let resource = unsafe { GuardedResource::new(resource, &(), Some(&allocation_callbacks)) };
+        drop(resource);
+
+        assert_eq!(
+            destructor_called,
+            Some(DestructorCalled {
+                destroyer: (),
+                allocation_callbacks: Some(&allocation_callbacks as _)
+            })
+        );
+    }
+
+    #[test]
+    fn sanity_check_take_guarded_resource() {
+        let allocation_callbacks = Default::default();
+        let mut destructor_called = None;
+        let resource = TestResource(&mut destructor_called);
+
+        let resource = unsafe { GuardedResource::new(resource, &(), Some(&allocation_callbacks)) };
+        drop(resource.take());
+
+        assert!(destructor_called.is_none());
+    }
+
+    #[test]
+    fn sanity_check_guarded_vec() {
+        let allocation_callbacks: vk::AllocationCallbacks = Default::default();
+        let mut destructor_called_0 = None;
+        let mut destructor_called_1 = None;
+        let mut destructor_called_2 = None;
+
+        {
+            let resources_to_create: [Result<_, ()>; 3] = [
+                Ok(TestResource(&mut destructor_called_0)),
+                Ok(TestResource(&mut destructor_called_1)),
+                Ok(TestResource(&mut destructor_called_2)),
+            ];
+
+            let mut resources = unsafe {
+                GuardedResource::try_new_from(resources_to_create, &42, Some(&allocation_callbacks))
+            }
+            .unwrap();
+
+            resources.pop();
+        }
+
+        assert_eq!(
+            destructor_called_0,
+            Some(DestructorCalled {
+                destroyer: 42,
+                allocation_callbacks: Some(&allocation_callbacks as _)
+            })
+        );
+        assert_eq!(
+            destructor_called_1,
+            Some(DestructorCalled {
+                destroyer: 42,
+                allocation_callbacks: Some(&allocation_callbacks as _)
+            })
+        );
+        assert!(destructor_called_2.is_none());
+    }
+
+    #[test]
+    fn sanity_check_guarded_vec_err() {
+        let allocation_callbacks: vk::AllocationCallbacks = Default::default();
+        let mut destructor_called_0 = None;
+        let mut destructor_called_1 = None;
+        let mut destructor_called_2 = None;
+
+        {
+            let resources_to_create = [
+                Ok(TestResource(&mut destructor_called_0)),
+                Ok(TestResource(&mut destructor_called_1)),
+                Err("oh no"),
+                Ok(TestResource(&mut destructor_called_2)),
+            ];
+
+            let resources = unsafe {
+                GuardedResource::try_new_from(resources_to_create, &42, Some(&allocation_callbacks))
+            };
+
+            assert!(resources.is_err());
+        }
+
+        assert_eq!(
+            destructor_called_0,
+            Some(DestructorCalled {
+                destroyer: 42,
+                allocation_callbacks: Some(&allocation_callbacks as _)
+            })
+        );
+        assert_eq!(
+            destructor_called_1,
+            Some(DestructorCalled {
+                destroyer: 42,
+                allocation_callbacks: Some(&allocation_callbacks as _)
+            })
+        );
+        assert!(destructor_called_2.is_none());
+    }
+
+    #[test]
+    fn sanity_check_guarded_array() {
+        let allocation_callbacks: vk::AllocationCallbacks = Default::default();
+        let mut destructor_called_0 = None;
+        let mut destructor_called_1 = None;
+        let mut destructor_called_2 = None;
+
+        {
+            let mut resources_to_create = [
+                Ok(TestResource(&mut destructor_called_0)),
+                Ok(TestResource(&mut destructor_called_1)),
+                Ok(TestResource(&mut destructor_called_2)),
+                Err(()),
+            ]
+            .into_iter();
+            let create_resource = |_| resources_to_create.next().unwrap();
+
+            let _resources: GuardedResource<[_; 3], _> = unsafe {
+                GuardedResource::try_new_with(create_resource, &42, Some(&allocation_callbacks))
+            }
+            .unwrap();
+        }
+
+        assert_eq!(
+            destructor_called_0,
+            Some(DestructorCalled {
+                destroyer: 42,
+                allocation_callbacks: Some(&allocation_callbacks as _)
+            })
+        );
+        assert_eq!(
+            destructor_called_1,
+            Some(DestructorCalled {
+                destroyer: 42,
+                allocation_callbacks: Some(&allocation_callbacks as _)
+            })
+        );
+        assert_eq!(
+            destructor_called_2,
+            Some(DestructorCalled {
+                destroyer: 42,
+                allocation_callbacks: Some(&allocation_callbacks as _)
+            })
+        );
+    }
+
+    #[test]
+    fn sanity_check_guarded_array_err() {
+        let allocation_callbacks: vk::AllocationCallbacks = Default::default();
+        let mut destructor_called_0 = None;
+        let mut destructor_called_1 = None;
+        let mut destructor_called_2 = None;
+
+        {
+            let mut resources_to_create = [
+                Ok(TestResource(&mut destructor_called_0)),
+                Ok(TestResource(&mut destructor_called_1)),
+                Err("oh no"),
+                Ok(TestResource(&mut destructor_called_2)),
+            ]
+            .into_iter();
+            let create_resource = |_| resources_to_create.next().unwrap();
+
+            let resources: Result<GuardedResource<[_; 4], _>, _> = unsafe {
+                GuardedResource::try_new_with(create_resource, &42, Some(&allocation_callbacks))
+            };
+
+            assert!(resources.is_err());
+        }
+
+        assert_eq!(
+            destructor_called_0,
+            Some(DestructorCalled {
+                destroyer: 42,
+                allocation_callbacks: Some(&allocation_callbacks as _)
+            })
+        );
+        assert_eq!(
+            destructor_called_1,
+            Some(DestructorCalled {
+                destroyer: 42,
+                allocation_callbacks: Some(&allocation_callbacks as _)
+            })
+        );
+        assert!(destructor_called_2.is_none());
     }
 }

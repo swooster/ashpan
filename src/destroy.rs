@@ -141,20 +141,6 @@ destroyable!(destroy_sampler_ycbcr_conversion, vk::SamplerYcbcrConversion);
 //     Destroyable<Destroyer=(&ash::Device, vk::CommandPool)> vk::CommandBuffer
 //     Destroyable<Destroyer=(&ash::Device, vk::DescriptorPool)> vk::DescriptorSet
 
-impl<Resource: Destroyable> Destroyable for Vec<Resource> {
-    type Destroyer = <Resource as Destroyable>::Destroyer;
-
-    unsafe fn destroy_with(
-        &mut self,
-        destroyer: &Self::Destroyer,
-        allocation_callbacks: Option<&vk::AllocationCallbacks>,
-    ) {
-        for mut resource in self.drain(..) {
-            resource.destroy_with(destroyer, allocation_callbacks);
-        }
-    }
-}
-
 macro_rules! destroyable_ext {
     ($Destroyer:ty, $destroy:ident, $Resource:ty) => {
         impl Destroyable for $Resource {
@@ -205,3 +191,31 @@ destroyable_ext!(khr::Swapchain, destroy_swapchain, vk::SwapchainKHR);
 //     ValidationCacheEXT
 //     VideoSessionKHR
 //     VideoSessionParametersKHR
+
+impl<Resource: Destroyable> Destroyable for Vec<Resource> {
+    type Destroyer = <Resource as Destroyable>::Destroyer;
+
+    unsafe fn destroy_with(
+        &mut self,
+        destroyer: &Self::Destroyer,
+        allocation_callbacks: Option<&vk::AllocationCallbacks>,
+    ) {
+        for mut resource in self.drain(..) {
+            resource.destroy_with(destroyer, allocation_callbacks);
+        }
+    }
+}
+
+impl<Resource: Destroyable, const N: usize> Destroyable for [Resource; N] {
+    type Destroyer = <Resource as Destroyable>::Destroyer;
+
+    unsafe fn destroy_with(
+        &mut self,
+        destroyer: &Self::Destroyer,
+        allocation_callbacks: Option<&vk::AllocationCallbacks>,
+    ) {
+        for resource in self {
+            resource.destroy_with(destroyer, allocation_callbacks);
+        }
+    }
+}

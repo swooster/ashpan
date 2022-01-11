@@ -1,5 +1,12 @@
 # Releases
 
+## Unreleased
+
+* Add `Destroyable` support for fixed-size arrays.
+* Add `Guarded::try_new_from` and `Guarded::try_new_with` to make it easier to
+  construct guarded `Vec`s and `array`s, respectively. Hopefully this also
+  improves discoverability.
+
 ## Version 0.6.0
 
 * Update `ash` dependency to 0.34.0
