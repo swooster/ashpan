@@ -1,6 +1,6 @@
 # Releases
 
-## Unreleased
+## Version 0.6.1
 
 * Add `Destroyable` support for fixed-size arrays.
 * Add `Guarded::try_new_from` and `Guarded::try_new_with` to make it easier to
