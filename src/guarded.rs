@@ -335,7 +335,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::{Destroyable, GuardedResource};
+    use crate::{Destroyable, Guarded, GuardedResource};
     use ash::vk;
 
     #[derive(Debug, PartialEq)]
@@ -344,6 +344,7 @@ mod tests {
         allocation_callbacks: Option<*const vk::AllocationCallbacks>,
     }
 
+    #[derive(Debug)]
     struct TestResource<'a, Destroyer>(&'a mut Option<DestructorCalled<Destroyer>>);
 
     impl<'a, Destroyer: Copy> Destroyable for TestResource<'a, Destroyer> {
@@ -361,14 +362,48 @@ mod tests {
         }
     }
 
+    #[derive(Debug)]
+    struct TestWrapper<T>(T);
+
+    impl<T: Clone> TestWrapper<T> {
+        fn value(&self) -> T {
+            self.0.clone()
+        }
+
+        fn set_value(&mut self, new_value: T) {
+            self.0 = new_value;
+        }
+    }
+
+    impl<T> Destroyable for TestWrapper<T> {
+        type Destroyer = ();
+
+        unsafe fn destroy_with(
+            &mut self,
+            _destroyer: &(),
+            _allocation_callbacks: Option<&vk::AllocationCallbacks>,
+        ) {
+        }
+    }
+
     #[test]
-    fn sanity_check_drop_guarded_resource() {
+    fn methods_can_be_called_on_guarded_resource() {
+        let mut guarded = unsafe { Guarded::new(TestWrapper(12332), &(), None) };
+        assert_eq!(guarded.value(), 12332);
+        guarded.set_value(42);
+        assert_eq!(guarded.value(), 42);
+    }
+
+    #[test]
+    fn guarded_resources_are_destroyed_when_dropped() {
         let allocation_callbacks = Default::default();
         let mut destructor_called = None;
         let resource = TestResource(&mut destructor_called);
 
-        let resource = unsafe { GuardedResource::new(resource, &(), Some(&allocation_callbacks)) };
-        drop(resource);
+        {
+            let _guarded =
+                unsafe { GuardedResource::new(resource, &(), Some(&allocation_callbacks)) };
+        }
 
         assert_eq!(
             destructor_called,
@@ -380,19 +415,37 @@ mod tests {
     }
 
     #[test]
-    fn sanity_check_take_guarded_resource() {
+    fn guarded_resources_are_not_destroyed_when_taken() {
         let allocation_callbacks = Default::default();
         let mut destructor_called = None;
         let resource = TestResource(&mut destructor_called);
 
-        let resource = unsafe { GuardedResource::new(resource, &(), Some(&allocation_callbacks)) };
-        drop(resource.take());
+        {
+            let guarded =
+                unsafe { GuardedResource::new(resource, &(), Some(&allocation_callbacks)) };
+            guarded.take();
+        }
 
         assert!(destructor_called.is_none());
     }
 
     #[test]
-    fn sanity_check_guarded_vec() {
+    fn guarded_vec_has_accessible_elements() {
+        let resources_to_create: [Result<_, ()>; 3] = [
+            Ok(TestWrapper(321)),
+            Ok(TestWrapper(432)),
+            Ok(TestWrapper(543)),
+        ];
+
+        let guarded = unsafe { Guarded::try_new_from(resources_to_create, &(), None) }.unwrap();
+
+        assert_eq!(guarded[0].value(), 321);
+        assert_eq!(guarded[1].value(), 432);
+        assert_eq!(guarded[2].value(), 543);
+    }
+
+    #[test]
+    fn guarded_vec_destroys_elements_upon_drop() {
         let allocation_callbacks: vk::AllocationCallbacks = Default::default();
         let mut destructor_called_0 = None;
         let mut destructor_called_1 = None;
@@ -405,12 +458,12 @@ mod tests {
                 Ok(TestResource(&mut destructor_called_2)),
             ];
 
-            let mut resources = unsafe {
+            let mut guarded = unsafe {
                 GuardedResource::try_new_from(resources_to_create, &42, Some(&allocation_callbacks))
             }
             .unwrap();
 
-            resources.pop();
+            guarded.pop();
         }
 
         assert_eq!(
@@ -431,7 +484,7 @@ mod tests {
     }
 
     #[test]
-    fn sanity_check_guarded_vec_err() {
+    fn guarded_vec_drops_previously_created_elements_upon_error() {
         let allocation_callbacks: vk::AllocationCallbacks = Default::default();
         let mut destructor_called_0 = None;
         let mut destructor_called_1 = None;
@@ -442,14 +495,13 @@ mod tests {
                 Ok(TestResource(&mut destructor_called_0)),
                 Ok(TestResource(&mut destructor_called_1)),
                 Err("oh no"),
+                Err("another failure"),
                 Ok(TestResource(&mut destructor_called_2)),
             ];
 
-            let resources = unsafe {
+            let _guarded = unsafe {
                 GuardedResource::try_new_from(resources_to_create, &42, Some(&allocation_callbacks))
             };
-
-            assert!(resources.is_err());
         }
 
         assert_eq!(
@@ -470,23 +522,51 @@ mod tests {
     }
 
     #[test]
-    fn sanity_check_guarded_array() {
+    fn guarded_vec_returns_first_error() {
+        let resources_to_create = [
+            Ok(TestWrapper(5)),
+            Err("oh no"),
+            Err("another failure"),
+            Ok(TestWrapper(15)),
+        ]
+        .into_iter();
+
+        let guarded = unsafe { GuardedResource::try_new_from(resources_to_create, &(), None) };
+
+        assert_eq!(guarded.unwrap_err(), "oh no");
+    }
+
+    #[test]
+    fn guarded_array_has_accessible_elements() {
+        let mut values = [321, 432, 543].into_iter();
+        let create_resource = |_| Result::<_, ()>::Ok(TestWrapper(values.next().unwrap()));
+
+        let guarded = unsafe { Guarded::try_new_with(create_resource, &(), None) }.unwrap();
+
+        assert_eq!(guarded[0].value(), 321);
+        assert_eq!(guarded[1].value(), 432);
+        assert_eq!(guarded[2].value(), 543);
+
+        let _: [_; 3] = guarded.take();
+    }
+
+    #[test]
+    fn guarded_array_destroys_elements_upon_drop() {
         let allocation_callbacks: vk::AllocationCallbacks = Default::default();
         let mut destructor_called_0 = None;
         let mut destructor_called_1 = None;
         let mut destructor_called_2 = None;
 
         {
-            let mut resources_to_create = [
+            let resources_to_create: [Result<_, ()>; 3] = [
                 Ok(TestResource(&mut destructor_called_0)),
                 Ok(TestResource(&mut destructor_called_1)),
                 Ok(TestResource(&mut destructor_called_2)),
-                Err(()),
-            ]
-            .into_iter();
+            ];
+            let mut resources_to_create = resources_to_create.into_iter();
             let create_resource = |_| resources_to_create.next().unwrap();
 
-            let _resources: GuardedResource<[_; 3], _> = unsafe {
+            let _guarded: GuardedResource<[_; 3], _> = unsafe {
                 GuardedResource::try_new_with(create_resource, &42, Some(&allocation_callbacks))
             }
             .unwrap();
@@ -516,7 +596,7 @@ mod tests {
     }
 
     #[test]
-    fn sanity_check_guarded_array_err() {
+    fn guarded_array_drops_previously_created_elements_upon_error() {
         let allocation_callbacks: vk::AllocationCallbacks = Default::default();
         let mut destructor_called_0 = None;
         let mut destructor_called_1 = None;
@@ -532,11 +612,9 @@ mod tests {
             .into_iter();
             let create_resource = |_| resources_to_create.next().unwrap();
 
-            let resources: Result<GuardedResource<[_; 4], _>, _> = unsafe {
+            let _guarded: Result<GuardedResource<[_; 4], _>, _> = unsafe {
                 GuardedResource::try_new_with(create_resource, &42, Some(&allocation_callbacks))
             };
-
-            assert!(resources.is_err());
         }
 
         assert_eq!(
@@ -554,5 +632,22 @@ mod tests {
             })
         );
         assert!(destructor_called_2.is_none());
+    }
+
+    #[test]
+    fn guarded_array_returns_first_error() {
+        let mut resources_to_create = [
+            Ok(TestWrapper(5)),
+            Err("oh no"),
+            Err("another failure"),
+            Ok(TestWrapper(15)),
+        ]
+        .into_iter();
+        let create_resource = |_| resources_to_create.next().unwrap();
+
+        let guarded: Result<GuardedResource<[_; 4], _>, _> =
+            unsafe { GuardedResource::try_new_with(create_resource, &(), None) };
+
+        assert_eq!(guarded.unwrap_err(), "oh no");
     }
 }
