@@ -1,6 +1,6 @@
 # Releases
 
-## Unreleased
+## Version 0.6.2
 
 * Add `Destroyable` support for `Option` and `Result`.
 
