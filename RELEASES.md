@@ -1,5 +1,9 @@
 # Releases
 
+## Unreleased
+
+* Add `Destroyable` support for `Option` and `Result`.
+
 ## Version 0.6.1
 
 * Add `Destroyable` support for fixed-size arrays.

@@ -219,3 +219,31 @@ impl<Resource: Destroyable, const N: usize> Destroyable for [Resource; N] {
         }
     }
 }
+
+impl<Resource: Destroyable> Destroyable for Option<Resource> {
+    type Destroyer = <Resource as Destroyable>::Destroyer;
+
+    unsafe fn destroy_with(
+        &mut self,
+        destroyer: &Self::Destroyer,
+        allocation_callbacks: Option<&vk::AllocationCallbacks>,
+    ) {
+        if let Some(ref mut resource) = self {
+            resource.destroy_with(destroyer, allocation_callbacks);
+        }
+    }
+}
+
+impl<Resource: Destroyable, Error> Destroyable for Result<Resource, Error> {
+    type Destroyer = <Resource as Destroyable>::Destroyer;
+
+    unsafe fn destroy_with(
+        &mut self,
+        destroyer: &Self::Destroyer,
+        allocation_callbacks: Option<&vk::AllocationCallbacks>,
+    ) {
+        if let Ok(ref mut resource) = self {
+            resource.destroy_with(destroyer, allocation_callbacks);
+        }
+    }
+}
