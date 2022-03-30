@@ -204,7 +204,7 @@ mod tests {
         }
 
         unsafe {
-            let entry = ash::Entry::new();
+            let entry = ash::Entry::load().unwrap();
             let instance = entry
                 .create_guarded_instance(unimplemented(), None)
                 .unwrap();

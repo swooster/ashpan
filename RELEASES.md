@@ -1,5 +1,9 @@
 # Releases
 
+## Unreleased
+
+* Update `ash` dependency to 0.37.0
+
 ## Version 0.6.2
 
 * Add `Destroyable` support for `Option` and `Result`.

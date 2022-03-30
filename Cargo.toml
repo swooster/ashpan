@@ -13,7 +13,7 @@ authors = ["Steve Wooster <s.f.m.wooster@gmail.com>"]
 edition = "2021"
 
 [dependencies]
-ash = "0.34.0"
+ash = "0.37.0"
 
 [dev-dependencies]
 scopeguard = "1.1.0"
